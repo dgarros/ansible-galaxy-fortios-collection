@@ -531,27 +531,32 @@ def firewall_address(data, fos, check_mode=False):
         # 2. if it exists and the state is 'present' then compare current settings with desired
         if state == 'present' or state is True:
             if mkey is None:
-                return False, True, filtered_data
+                return False, True, None, filtered_data
 
             # if mkey exists then compare each other
             # record exits and they're matched or not
             if is_existed:
                 is_same = is_same_comparison(
                     serialize(current_data['results'][0]), serialize(filtered_data))
-                return False, not is_same, filtered_data
+
+                data = {
+                    "before": current_data['results'][0],
+                    "after": filtered_data
+                }
+                return False, not is_same, data, filtered_data
 
             # record does not exist
-            return False, True, filtered_data
+            return False, True, None, filtered_data
 
         if state == 'absent':
             if mkey is None:
-                return False, False, filtered_data
+                return False, False, None, filtered_data
 
             if is_existed:
-                return False, True, filtered_data
-            return False, False, filtered_data
+                return False, True, None, filtered_data
+            return False, False, None, filtered_data
 
-        return True, False, {'reason: ': 'Must provide state parameter'}
+        return True, False, None, {'reason: ': 'Must provide state parameter'}
 
     if state == "present" or state is True:
         return fos.set('firewall',
@@ -583,7 +588,7 @@ def fortios_firewall(data, fos, check_mode):
         return resp
     return not is_successful_status(resp), \
         resp['status'] == "success" and \
-        (resp['revision_changed'] if 'revision_changed' in resp else True), \
+        (resp['revision_changed'] if 'revision_changed' in resp else True), None, \
         resp
 
 
@@ -1822,24 +1827,24 @@ def main():
         fos = FortiOSHandler(connection, module, mkeyname)
         versions_check_result = check_schema_versioning(fos, versioned_schema, "firewall_address")
 
-        is_error, has_changed, result = fortios_firewall(module.params, fos, module.check_mode)
+        is_error, has_changed, data, result = fortios_firewall(module.params, fos, module.check_mode)
 
     else:
         module.fail_json(**FAIL_SOCKET_MSG)
 
     if versions_check_result and versions_check_result['matched'] is False:
-        module.warn("Ansible has detected version mismatch between FortOS system and your playbook, see more details by specifying option -vvv")
+        meodule.warn("Ansible has detectd version mismatch between FortOS system and your playbook, see more details by specifying option -vvv")
 
     if not is_error:
         if versions_check_result and versions_check_result['matched'] is False:
-            module.exit_json(changed=has_changed, version_check_warning=versions_check_result, meta=result)
+            module.exit_json(changed=has_changed, version_check_warning=versions_check_result, meta=result, data=data)
         else:
-            module.exit_json(changed=has_changed, meta=result)
+            module.exit_json(changed=has_changed, meta=result, data=data)
     else:
         if versions_check_result and versions_check_result['matched'] is False:
-            module.fail_json(msg="Error in repo", version_check_warning=versions_check_result, meta=result)
+            module.fail_json(msg="Error in repo", version_check_warning=versions_check_result, meta=result, data=data)
         else:
-            module.fail_json(msg="Error in repo", meta=result)
+            module.fail_json(msg="Error in repo", meta=result, data=data)
 
 
 if __name__ == '__main__':
